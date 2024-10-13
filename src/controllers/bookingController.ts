@@ -1,6 +1,13 @@
 import { Request, Response } from "express";
 import Booking, { IBooking } from "../models/Booking";
 import User, { IUser } from "../models/User";
+import { startOfWeek, endOfWeek } from "date-fns";
+import { format } from "date-fns";
+import {
+  format as formatWithTimezone,
+  fromZonedTime,
+  toZonedTime,
+} from "date-fns-tz";
 
 interface AuthRequest extends Request {
   user?: IUser;
@@ -104,14 +111,21 @@ export const getBooking = async (
   res: Response
 ): Promise<void> => {
   try {
-    const booking = await Booking.findById(req.params.id);
+    const booking = await Booking.findById(req.params.id).populate(
+      "user",
+      "name"
+    );
     if (!booking) {
-      res.status(404).send();
+      res.status(404).send({ error: "Booking not found." });
       return;
     }
-    res.send(booking);
+
+    const formattedBookings = formatBookingDates(booking);
+    res.status(200).send(formattedBookings);
   } catch (error) {
-    res.status(500).send(error);
+    res
+      .status(500)
+      .send({ error: "Failed to retrieve booking", details: error });
   }
 };
 
@@ -184,7 +198,8 @@ export const getAllBookings = async (
   try {
     const bookings = await Booking.find().populate("user", "name");
 
-    res.status(200).send(bookings);
+    const formattedBookings = bookings.map(formatBookingDates);
+    res.status(200).send(formattedBookings);
   } catch (error) {
     res
       .status(500)
@@ -204,19 +219,24 @@ export const getBookingsForDate = async (
       return;
     }
 
-    const parsedDate = new Date(date as string);
+    const timeZone = "Asia/Singapore";
+    const parsedDateSGT = fromZonedTime(date, timeZone);
 
-    const startOfDay = new Date(parsedDate.setUTCHours(0, 0, 0, 0));
-    const endOfDay = new Date(parsedDate.setUTCHours(23, 59, 59, 999));
+    const startOfDaySGT = new Date(parsedDateSGT.setUTCHours(0, 0, 0, 0));
+    const endOfDaySGT = new Date(parsedDateSGT.setUTCHours(23, 59, 59, 999));
 
     const bookings = await Booking.find({
       date: {
-        $gte: startOfDay,
-        $lt: endOfDay,
+        $gte: startOfDaySGT,
+        $lt: endOfDaySGT,
       },
     }).populate("user", "name");
 
-    res.status(200).send(bookings);
+    const formattedBookings = bookings.map((booking) => {
+      return formatBookingDates(booking);
+    });
+
+    res.status(200).send(formattedBookings);
   } catch (error) {
     res
       .status(500)
@@ -235,8 +255,115 @@ export const getUserBookingHistory = async (
       })
       .populate("user", "name");
 
-    res.status(200).send(bookings);
+    const formattedBookings = bookings.map(formatBookingDates);
+    res.status(200).send(formattedBookings);
   } catch (error) {
     res.status(500).send(error);
   }
+};
+
+export const getBookingsForWeek = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { date } = req.params;
+
+    if (!date || isNaN(Date.parse(date as string))) {
+      res.status(400).send({ error: "Invalid or missing date parameter" });
+      return;
+    }
+
+    const givenDate = new Date(date);
+    const startOfTheWeek = startOfWeek(givenDate, { weekStartsOn: 1 }); // Monday
+    const endOfTheWeek = endOfWeek(givenDate, { weekStartsOn: 1 }); // Sunday
+
+    const weeklyBookings = await Booking.find({
+      date: { $gte: startOfTheWeek, $lte: endOfTheWeek },
+    }).populate("user", "name");
+
+    const now = new Date();
+    const pastBookings = weeklyBookings
+      .filter((booking) => booking.date < now)
+      .map(formatBookingDates);
+    const upcomingBookings = weeklyBookings
+      .filter((booking) => booking.date >= now)
+      .map(formatBookingDates);
+
+    res.status(200).send({
+      startOfTheWeek,
+      endOfTheWeek,
+      pastBookings,
+      upcomingBookings,
+    });
+  } catch (error) {
+    res
+      .status(500)
+      .send({ error: "Failed to retrieve bookings", details: error });
+  }
+};
+
+export const getPastBookings = async (req: AuthRequest, res: Response) => {
+  try {
+    const now = new Date();
+
+    const pastBookings = await Booking.find({
+      date: { $lt: now },
+    })
+      .populate("user", "name")
+      .sort({ date: -1 });
+
+    const formattedBookings = pastBookings.map(formatBookingDates);
+    res.status(200).send(formattedBookings);
+  } catch (error) {
+    res.status(500).send({
+      error: "Failed to retrieve past bookings",
+      details: error,
+    });
+  }
+};
+
+export const getUpcomingBookings = async (req: AuthRequest, res: Response) => {
+  try {
+    const now = new Date();
+
+    const upcomingBookings = await Booking.find({
+      date: { $gte: now },
+    })
+      .populate("user", "name")
+      .sort({ date: 1 });
+
+    const formattedBookings = upcomingBookings.map(formatBookingDates);
+    res.status(200).send(formattedBookings);
+  } catch (error) {
+    res.status(500).send({
+      error: "Failed to retrieve upcoming bookings",
+      details: error,
+    });
+  }
+};
+
+const formatBookingDates = (booking: any) => {
+  const bookingDate = new Date(booking.date);
+
+  // Format for local time (based on server's time zone)
+  const localDate = format(bookingDate, "EEEE, dd MMMM yyyy, h:mm a");
+
+  // Format for Singapore time (SGT)
+  const sgtDate = formatWithTimezone(
+    bookingDate,
+    "EEEE, dd MMMM yyyy, h:mm a",
+    {
+      timeZone: "Asia/Singapore",
+    }
+  );
+
+  return {
+    ...booking.toObject(),
+    dateFormats: {
+      original: bookingDate,
+      local: localDate,
+      sgt: sgtDate,
+    },
+  };
 };

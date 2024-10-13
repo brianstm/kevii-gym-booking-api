@@ -15,6 +15,7 @@ export const auth = async (
     const token = req.header("Authorization")?.replace("Bearer ", "");
 
     if (!token) {
+      res.status(404).send({ error: "Please authenticate." });
       throw new Error();
     }
 
@@ -24,6 +25,7 @@ export const auth = async (
     const user = await User.findOne({ _id: decoded._id });
 
     if (!user) {
+      res.status(404).send({ error: "Please authenticate." });
       throw new Error();
     }
 

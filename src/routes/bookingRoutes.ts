@@ -8,6 +8,9 @@ import {
   getBookingsForDate,
   getUserBookingHistory,
   getAllBookings,
+  getBookingsForWeek,
+  getPastBookings,
+  getUpcomingBookings,
 } from "../controllers/bookingController";
 
 const router = express.Router();
@@ -18,6 +21,9 @@ router.get("/bookings/", auth, getAllBookings);
 router.patch("/bookings/:id", auth, updateBooking);
 router.delete("/bookings/:id", auth, deleteBooking);
 router.get("/bookings/date/:date", auth, getBookingsForDate);
-router.get("/past-booking", auth, getUserBookingHistory);
+router.get("/bookings/week/:date", auth, getBookingsForWeek);
+router.get("/all-bookings", auth, getUserBookingHistory);
+router.get("/past-bookings", auth, getPastBookings);
+router.get("/upcoming-bookings", auth, getUpcomingBookings);
 
 export default router;
