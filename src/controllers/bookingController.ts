@@ -1,13 +1,9 @@
 import { Request, Response } from "express";
 import Booking, { IBooking } from "../models/Booking";
 import User, { IUser } from "../models/User";
-import { startOfWeek, endOfWeek } from "date-fns";
+import { startOfWeek, addDays, startOfDay } from "date-fns";
 import { format } from "date-fns";
-import {
-  format as formatWithTimezone,
-  fromZonedTime,
-  toZonedTime,
-} from "date-fns-tz";
+import { format as formatWithTimezone, fromZonedTime } from "date-fns-tz";
 
 interface AuthRequest extends Request {
   user?: IUser;
@@ -262,24 +258,73 @@ export const getUserBookingHistory = async (
   }
 };
 
+// export const getBookingsForWeek = async (
+//   req: Request,
+//   res: Response
+// ): Promise<void> => {
+//   try {
+//     const { date } = req.params;
+
+//     if (!date || isNaN(Date.parse(date as string))) {
+//       res.status(400).send({ error: "Invalid or missing date parameter" });
+//       return;
+//     }
+
+//     const givenDate = new Date(date);
+//     const startOfTheWeek = startOfWeek(givenDate, { weekStartsOn: 1 }); // Monday
+//     const endOfTheWeek = endOfWeek(givenDate, { weekStartsOn: 1 }); // Sunday
+
+//     const weeklyBookings = await Booking.find({
+//       date: { $gte: startOfTheWeek, $lte: endOfTheWeek },
+//     }).populate("user", "name");
+
+//     const now = new Date();
+//     const pastBookings = weeklyBookings
+//       .filter((booking) => booking.date < now)
+//       .map(formatBookingDates);
+//     const upcomingBookings = weeklyBookings
+//       .filter((booking) => booking.date >= now)
+//       .map(formatBookingDates);
+
+//     res.status(200).send({
+//       startOfTheWeek,
+//       endOfTheWeek,
+//       pastBookings,
+//       upcomingBookings,
+//     });
+//   } catch (error) {
+//     res
+//       .status(500)
+//       .send({ error: "Failed to retrieve bookings", details: error });
+//   }
+// };
+
 export const getBookingsForWeek = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    const { date } = req.params;
+    const { date, startOfWeek: startOfWeekParam } = req.query;
 
     if (!date || isNaN(Date.parse(date as string))) {
       res.status(400).send({ error: "Invalid or missing date parameter" });
       return;
     }
 
-    const givenDate = new Date(date);
-    const startOfTheWeek = startOfWeek(givenDate, { weekStartsOn: 1 }); // Monday
-    const endOfTheWeek = endOfWeek(givenDate, { weekStartsOn: 1 }); // Sunday
+    const givenDate = new Date(date as string);
+    let startDate: Date;
+    let endDate: Date;
+
+    if (startOfWeekParam === "true") {
+      startDate = startOfWeek(givenDate, { weekStartsOn: 1 });
+    } else {
+      startDate = startOfDay(givenDate);
+    }
+
+    endDate = addDays(startDate, 6);
 
     const weeklyBookings = await Booking.find({
-      date: { $gte: startOfTheWeek, $lte: endOfTheWeek },
+      date: { $gte: startDate, $lte: endDate },
     }).populate("user", "name");
 
     const now = new Date();
@@ -291,8 +336,8 @@ export const getBookingsForWeek = async (
       .map(formatBookingDates);
 
     res.status(200).send({
-      startOfTheWeek,
-      endOfTheWeek,
+      startDate,
+      endDate,
       pastBookings,
       upcomingBookings,
     });
