@@ -16,14 +16,14 @@ import {
 const router = express.Router();
 
 router.post("/bookings/", auth, createBooking);
-router.get("/bookings/:id", auth, getBooking);
+router.get("/booking/:id", auth, getBooking);
 router.get("/bookings/", auth, getAllBookings);
 router.patch("/bookings/:id", auth, updateBooking);
 router.delete("/bookings/:id", auth, deleteBooking);
 router.get("/bookings/date/:date", auth, getBookingsForDate);
 router.get("/bookings/week", auth, getBookingsForWeek);
-router.get("/all-bookings", auth, getUserBookingHistory);
-router.get("/past-bookings", auth, getPastBookings);
-router.get("/upcoming-bookings", auth, getUpcomingBookings);
+router.get("/bookings/all", auth, getUserBookingHistory);
+router.get("/bookings/past", auth, getPastBookings);
+router.get("/bookings/upcoming", auth, getUpcomingBookings);
 
 export default router;
