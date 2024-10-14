@@ -312,42 +312,46 @@ export const getBookingsForWeek = async (
     }
 
     const givenDate = new Date(date as string);
+    const useStartOfWeek = startOfWeekParam === "true";
+
     let startDate: Date;
     let endDate: Date;
 
-    if (startOfWeekParam === "true") {
-      startDate = startOfWeek(givenDate, { weekStartsOn: 1 });
+    if (useStartOfWeek) {
+      startDate = startOfWeek(givenDate, { weekStartsOn: 1 }); // Monday
+      endDate = addDays(startDate, 6); // Sunday
     } else {
-      startDate = startOfDay(givenDate);
+      startDate = givenDate;
+      endDate = addDays(startDate, 6);
     }
-
-    endDate = addDays(startDate, 6);
 
     const weeklyBookings = await Booking.find({
       date: { $gte: startDate, $lte: endDate },
     }).populate("user", "name");
 
-    const now = new Date();
-    const pastBookings = weeklyBookings
-      .filter((booking) => booking.date < now)
-      .map(formatBookingDates);
-    const upcomingBookings = weeklyBookings
-      .filter((booking) => booking.date >= now)
-      .map(formatBookingDates);
+    // Group bookings by date
+    const groupedBookings: { [key: string]: any[] } = {};
 
-    res.status(200).send({
-      startDate,
-      endDate,
-      pastBookings,
-      upcomingBookings,
+    for (let i = 0; i < 7; i++) {
+      const currentDate = addDays(startDate, i);
+      const dateKey = format(currentDate, "yyyy-MM-dd");
+      groupedBookings[dateKey] = [];
+    }
+
+    weeklyBookings.forEach((booking) => {
+      const bookingDate = format(booking.date, "yyyy-MM-dd");
+      if (groupedBookings[bookingDate]) {
+        groupedBookings[bookingDate].push(formatBookingDates(booking));
+      }
     });
+
+    res.status(200).send(groupedBookings);
   } catch (error) {
     res
       .status(500)
       .send({ error: "Failed to retrieve bookings", details: error });
   }
 };
-
 export const getPastBookings = async (req: AuthRequest, res: Response) => {
   try {
     const now = new Date();
