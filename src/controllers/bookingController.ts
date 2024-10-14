@@ -352,6 +352,7 @@ export const getBookingsForWeek = async (
       .send({ error: "Failed to retrieve bookings", details: error });
   }
 };
+
 export const getPastBookings = async (req: AuthRequest, res: Response) => {
   try {
     const now = new Date();

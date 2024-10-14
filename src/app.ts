@@ -4,6 +4,7 @@ import connectDB from "./config/database";
 import authRoutes from "./routes/authRoutes";
 import bookingRoutes from "./routes/bookingRoutes";
 import checkInRoutes from "./routes/checkInRoutes";
+import cors from "cors";
 
 dotenv.config();
 
@@ -11,6 +12,8 @@ const app = express();
 const PORT = process.env.PORT || 8000;
 
 connectDB();
+
+app.use(cors({ origin: "http://localhost:5173" }));
 
 app.use(express.json());
 
