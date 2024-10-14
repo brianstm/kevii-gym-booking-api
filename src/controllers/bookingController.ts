@@ -13,7 +13,7 @@ export const createBooking = async (
   res: Response
 ): Promise<void> => {
   try {
-    const maxUsersPerHour = 4;
+    const maxUsersPerHour = 5;
     const maxDuration = 3;
     const maxBookingsPerDay = 3;
 
