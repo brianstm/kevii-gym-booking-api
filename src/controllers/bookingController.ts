@@ -529,7 +529,7 @@ export const getBookingsForWeekByTimeslot = async (
         timeslotBookingsByDate[formattedDate] = {};
       }
 
-      for (let hour = startHour; hour <= endHour; hour++) {
+      for (let hour = startHour; hour < endHour; hour++) {
         for (let j = 0; j < 2; j++) {
           const timeslotStart = set(currentDate, {
             hours: hour,
