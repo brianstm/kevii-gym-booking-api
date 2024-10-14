@@ -15,7 +15,7 @@ export const auth = async (
     const token = req.header("Authorization")?.replace("Bearer ", "");
 
     if (!token) {
-      res.status(404).send({ error: "Please authenticate." });
+      res.status(404).send({ error: "No token provided." });
       throw new Error();
     }
 
