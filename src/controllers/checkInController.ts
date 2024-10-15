@@ -12,11 +12,15 @@ export const checkIn = async (
   res: Response
 ): Promise<void> => {
   try {
+    const now = new Date();
+    const utcNow = new Date(now.getTime() + now.getTimezoneOffset() * 60000);
+    const tenMinutesLater = new Date(utcNow.getTime() + 10 * 60 * 1000);
+
     const booking = await Booking.findOne({
       user: req.user!._id,
       date: {
-        $gte: new Date(),
-        $lte: new Date(new Date().getTime() + 10 * 60 * 1000),
+        $gte: utcNow,
+        $lte: tenMinutesLater,
       },
     });
 
@@ -38,7 +42,7 @@ export const checkIn = async (
 
     const checkIn = new CheckIn({
       user: req.user!._id,
-      checkInTime: new Date(),
+      checkInTime: utcNow,
     });
     await checkIn.save();
     res.status(201).send(checkIn);
@@ -61,7 +65,9 @@ export const checkOut = async (
       return;
     }
 
-    checkIn.checkOutTime = new Date();
+    const now = new Date();
+    const utcNow = new Date(now.getTime() + now.getTimezoneOffset() * 60000);
+    checkIn.checkOutTime = utcNow;
     await checkIn.save();
     res.send(checkIn);
   } catch (error) {
