@@ -465,7 +465,7 @@ export const getUpcomingBookings = async (req: AuthRequest, res: Response) => {
 // };
 
 export const getBookingsForWeekByTimeslot = async (
-  req: Request,
+  req: AuthRequest,
   res: Response
 ): Promise<void> => {
   try {
@@ -550,8 +550,17 @@ export const getBookingsForWeekByTimeslot = async (
             return bookingStart < timeslotEnd && bookingEnd > timeslotStart;
           });
 
-          timeslotBookingsByDate[formattedDate][timeslotKey] +=
-            bookingsInTimeslot.length;
+          const userBookingInTimeslot = bookingsInTimeslot.some(
+            (booking) =>
+              booking.user._id.toString() === req.user!._id.toString()
+          );
+
+          if (userBookingInTimeslot) {
+            timeslotBookingsByDate[formattedDate][timeslotKey] = 100;
+          } else {
+            timeslotBookingsByDate[formattedDate][timeslotKey] +=
+              bookingsInTimeslot.length;
+          }
         }
       }
     }
