@@ -464,6 +464,115 @@ export const getUpcomingBookings = async (req: AuthRequest, res: Response) => {
 //   }
 // };
 
+// export const getBookingsForWeekByTimeslot = async (
+//   req: AuthRequest,
+//   res: Response
+// ): Promise<void> => {
+//   try {
+//     const {
+//       date,
+//       startOfWeek: startOfWeekParam,
+//       startTime,
+//       endTime,
+//     } = req.query;
+
+//     if (!date || isNaN(Date.parse(date as string))) {
+//       res.status(400).send({ error: "Invalid or missing date parameter" });
+//       return;
+//     }
+
+//     const givenDate = new Date(date as string);
+//     const useStartOfWeek = startOfWeekParam === "true";
+
+//     const startHour = parseInt(startTime as string);
+//     const endHour = parseInt(endTime as string);
+
+//     if (
+//       isNaN(startHour) ||
+//       isNaN(endHour) ||
+//       startHour < 0 ||
+//       startHour > 23 ||
+//       endHour < 0 ||
+//       endHour > 23 ||
+//       startHour > endHour
+//     ) {
+//       res
+//         .status(400)
+//         .send({ error: "Invalid or missing startTime/endTime parameters" });
+//       return;
+//     }
+
+//     let startDate: Date;
+//     let endDate: Date;
+
+//     if (useStartOfWeek) {
+//       startDate = startOfWeek(givenDate, { weekStartsOn: 1 });
+//       endDate = addDays(startDate, 6);
+//     } else {
+//       startDate = givenDate;
+//       endDate = addDays(startDate, 6);
+//     }
+
+//     const weeklyBookings = await Booking.find({
+//       date: { $gte: startDate, $lte: endDate },
+//     }).populate("user", "name");
+
+//     const timeslotBookingsByDate: {
+//       [date: string]: { [timeslot: string]: number };
+//     } = {};
+
+//     for (let i = 0; i < 7; i++) {
+//       const currentDate = addDays(startDate, i);
+//       const formattedDate = format(currentDate, "yyyy-MM-dd");
+
+//       if (!timeslotBookingsByDate[formattedDate]) {
+//         timeslotBookingsByDate[formattedDate] = {};
+//       }
+
+//       for (let hour = startHour; hour < endHour; hour++) {
+//         for (let j = 0; j < 2; j++) {
+//           const timeslotStart = set(currentDate, {
+//             hours: hour,
+//             minutes: j * 30,
+//           });
+//           const timeslotEnd = addMinutes(timeslotStart, 30);
+//           const timeslotKey = format(timeslotStart, "HH:mm");
+
+//           if (!timeslotBookingsByDate[formattedDate][timeslotKey]) {
+//             timeslotBookingsByDate[formattedDate][timeslotKey] = 0;
+//           }
+
+//           const bookingsInTimeslot = weeklyBookings.filter((booking) => {
+//             const bookingStart = new Date(booking.date);
+//             const bookingEnd = new Date(
+//               bookingStart.getTime() + Number(booking.duration) * 60 * 60 * 1000
+//             );
+//             return bookingStart < timeslotEnd && bookingEnd > timeslotStart;
+//           });
+
+//           const userBookingInTimeslot = bookingsInTimeslot.some(
+//             (booking) =>
+//               booking.user._id.toString() === req.user!._id.toString()
+//           );
+
+//           if (userBookingInTimeslot) {
+//             timeslotBookingsByDate[formattedDate][timeslotKey] = 100;
+//           } else {
+//             timeslotBookingsByDate[formattedDate][timeslotKey] +=
+//               bookingsInTimeslot.length;
+//           }
+//         }
+//       }
+//     }
+
+//     res.status(200).send(timeslotBookingsByDate);
+//   } catch (error) {
+//     res
+//       .status(500)
+//       .send({ error: "Failed to retrieve bookings", details: error });
+//   }
+// };
+
 export const getBookingsForWeekByTimeslot = async (
   req: AuthRequest,
   res: Response
@@ -474,6 +583,7 @@ export const getBookingsForWeekByTimeslot = async (
       startOfWeek: startOfWeekParam,
       startTime,
       endTime,
+      useSpecialUserValue,
     } = req.query;
 
     if (!date || isNaN(Date.parse(date as string))) {
@@ -483,6 +593,7 @@ export const getBookingsForWeekByTimeslot = async (
 
     const givenDate = new Date(date as string);
     const useStartOfWeek = startOfWeekParam === "true";
+    const useSpecialValue = useSpecialUserValue === "true";
 
     const startHour = parseInt(startTime as string);
     const endHour = parseInt(endTime as string);
@@ -550,15 +661,20 @@ export const getBookingsForWeekByTimeslot = async (
             return bookingStart < timeslotEnd && bookingEnd > timeslotStart;
           });
 
-          const userBookingInTimeslot = bookingsInTimeslot.some(
-            (booking) =>
-              booking.user._id.toString() === req.user!._id.toString()
-          );
+          if (useSpecialValue) {
+            const userBookingInTimeslot = bookingsInTimeslot.some(
+              (booking) =>
+                booking.user._id.toString() === req.user!._id.toString()
+            );
 
-          if (userBookingInTimeslot) {
-            timeslotBookingsByDate[formattedDate][timeslotKey] = 100;
+            if (userBookingInTimeslot) {
+              timeslotBookingsByDate[formattedDate][timeslotKey] = 100;
+            } else {
+              timeslotBookingsByDate[formattedDate][timeslotKey] +=
+                bookingsInTimeslot.length;
+            }
           } else {
-            timeslotBookingsByDate[formattedDate][timeslotKey] +=
+            timeslotBookingsByDate[formattedDate][timeslotKey] =
               bookingsInTimeslot.length;
           }
         }
