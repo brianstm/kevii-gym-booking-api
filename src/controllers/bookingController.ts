@@ -150,6 +150,21 @@ export const updateBooking = async (
       return;
     }
 
+    const now = new Date();
+    const bookingTime = new Date(booking.date);
+    const timeDifference = bookingTime.getTime() - now.getTime();
+    const hoursDifference = timeDifference / (1000 * 60 * 60);
+
+    if (hoursDifference <= 1) {
+      res
+        .status(400)
+        .send({
+          error:
+            "Cannot edit bookings less than 1 hour before the scheduled time.",
+        });
+      return;
+    }
+
     updates.forEach((update) => {
       if (update === "date") {
         booking.date = new Date(req.body.date);
@@ -170,7 +185,7 @@ export const deleteBooking = async (
   res: Response
 ): Promise<void> => {
   try {
-    const booking = await Booking.findOneAndDelete({
+    const booking = await Booking.findOne({
       _id: req.params.id,
       user: req.user!._id,
     });
@@ -179,6 +194,26 @@ export const deleteBooking = async (
       res.status(404).send();
       return;
     }
+
+    const now = new Date();
+    const bookingTime = new Date(booking.date);
+    const timeDifference = bookingTime.getTime() - now.getTime();
+    const hoursDifference = timeDifference / (1000 * 60 * 60);
+
+    if (hoursDifference <= 1) {
+      res
+        .status(400)
+        .send({
+          error:
+            "Cannot delete bookings less than 1 hour before the scheduled time.",
+        });
+      return;
+    }
+
+    await Booking.findOneAndDelete({
+      _id: req.params.id,
+      user: req.user!._id,
+    });
 
     res.send(booking);
   } catch (error) {

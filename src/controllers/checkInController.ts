@@ -13,42 +13,64 @@ export const checkIn = async (
 ): Promise<void> => {
   try {
     const now = new Date();
-
     const nowOffset = new Date(now.getTime() + 8 * 60 * 60 * 1000);
-    const tenMinutesLater = new Date(nowOffset.getTime() + 10 * 60 * 1000);
-    const twentyMinutesLater = new Date(nowOffset.getTime() - 10 * 60 * 1000);
 
-    const booking = await Booking.findOne({
-      user: req.user!._id,
-      date: {
-        $gte: twentyMinutesLater,
-        $lte: tenMinutesLater,
-      },
-    });
+    res.status(200).send({ now, nowOffset });
+    return;
 
-    if (!booking) {
-      res.status(400).send({
-        error: "You can only check in up to 10 minutes before your booking.",
-      });
-      return;
-    }
+    // const booking = await Booking.findOne({
+    //   user: req.user!._id,
+    //   date: {
+    //     $lte: nowOffset,
+    //   },
+    // }).sort({ date: -1 });
 
-    const existingCheckIn = await CheckIn.findOne({
-      user: req.user!._id,
-      checkOutTime: null,
-    });
+    // if (!booking) {
+    //   res.status(400).send({
+    //     error: "No recent booking found.",
+    //   });
+    //   return;
+    // }
 
-    if (existingCheckIn) {
-      res.status(400).send({ error: "You are already checked in" });
-      return;
-    }
+    // const bookingTime = new Date(booking.date);
+    // const timeDifference =
+    //   (nowOffset.getTime() - bookingTime.getTime()) / (60 * 1000);
 
-    const checkIn = new CheckIn({
-      user: req.user!._id,
-      checkInTime: nowOffset,
-    });
-    await checkIn.save();
-    res.status(201).send(checkIn);
+    // if (timeDifference < -10) {
+    //   res.status(400).send({
+    //     error: "You can only check in up to 10 minutes before your booking.",
+    //   });
+    //   return;
+    // }
+
+    // if (timeDifference > 10) {
+    //   res.status(400).send({
+    //     error:
+    //       "You are late. Check-in is not allowed more than 10 minutes after the booking time.",
+    //   });
+    //   return;
+    // }
+
+    // const existingCheckIn = await CheckIn.findOne({
+    //   user: req.user!._id,
+    //   checkOutTime: null,
+    // });
+
+    // if (existingCheckIn) {
+    //   res.status(400).send({ error: "You are already checked in" });
+    //   return;
+    // }
+
+    // const checkIn = new CheckIn({
+    //   user: req.user!._id,
+    //   checkInTime: nowOffset,
+    // });
+    // await checkIn.save();
+
+    // booking.present = true;
+    // await booking.save();
+
+    // res.status(201).send({ checkIn, booking });
   } catch (error) {
     res.status(400).send(error);
   }
@@ -69,8 +91,8 @@ export const checkOut = async (
     }
 
     const now = new Date();
-    const utcNow = new Date(now.getTime() + now.getTimezoneOffset() * 60000);
-    checkIn.checkOutTime = utcNow;
+
+    checkIn.checkOutTime = now;
     await checkIn.save();
     res.send(checkIn);
   } catch (error) {
