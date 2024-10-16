@@ -14,13 +14,14 @@ export const checkIn = async (
   try {
     const now = new Date();
 
-    const utcNow = new Date(now.getTime() + now.getTimezoneOffset() * 60000);
-    const tenMinutesLater = new Date(utcNow.getTime() + 10 * 60 * 1000);
+    const nowOffset = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+    const tenMinutesLater = new Date(nowOffset.getTime() + 10 * 60 * 1000);
+    const twentyMinutesLater = new Date(nowOffset.getTime() - 10 * 60 * 1000);
 
-    const booking = await Booking.find({
+    const booking = await Booking.findOne({
       user: req.user!._id,
       date: {
-        $gte: utcNow,
+        $gte: twentyMinutesLater,
         $lte: tenMinutesLater,
       },
     });
@@ -44,7 +45,7 @@ export const checkIn = async (
 
     const checkIn = new CheckIn({
       user: req.user!._id,
-      checkInTime: utcNow,
+      checkInTime: nowOffset,
     });
     await checkIn.save();
     res.status(201).send(checkIn);
@@ -93,5 +94,35 @@ export const getCheckInStatus = async (
     }
   } catch (error) {
     res.status(500).send(error);
+  }
+};
+
+export const getAllCheckIns = async (
+  req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    const { limit } = req.query;
+
+    let limitNum = Number(limit);
+
+    if (!limit) {
+      limitNum = 10;
+    }
+
+    if (!req.user) {
+      res.status(401).send({ error: "Authentication required" });
+      return;
+    }
+
+    const checkIns = await CheckIn.find({ user: req.user._id })
+      .sort({ checkInTime: -1 })
+      .limit(limitNum);
+
+    res.status(200).send(checkIns);
+  } catch (error) {
+    res
+      .status(500)
+      .send({ error: "An error occurred while fetching check-ins" });
   }
 };
