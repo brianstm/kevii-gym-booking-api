@@ -8,6 +8,17 @@ interface AuthRequest extends Request {
   user?: IUser;
 }
 
+interface FormattedBooking {
+  _id: string;
+  date: string;
+  duration: Number;
+  user: {
+    _id: string;
+    name: string;
+  };
+  overlappingUsers: Array<{ _id: string; name: string }>;
+}
+
 export const createBooking = async (
   req: AuthRequest,
   res: Response
@@ -156,12 +167,10 @@ export const updateBooking = async (
     const hoursDifference = timeDifference / (1000 * 60 * 60);
 
     if (hoursDifference <= 1) {
-      res
-        .status(400)
-        .send({
-          error:
-            "Cannot edit bookings less than 1 hour before the scheduled time.",
-        });
+      res.status(400).send({
+        error:
+          "Cannot edit bookings less than 1 hour before the scheduled time.",
+      });
       return;
     }
 
@@ -201,12 +210,10 @@ export const deleteBooking = async (
     const hoursDifference = timeDifference / (1000 * 60 * 60);
 
     if (hoursDifference <= 1) {
-      res
-        .status(400)
-        .send({
-          error:
-            "Cannot delete bookings less than 1 hour before the scheduled time.",
-        });
+      res.status(400).send({
+        error:
+          "Cannot delete bookings less than 1 hour before the scheduled time.",
+      });
       return;
     }
 
@@ -292,47 +299,6 @@ export const getUserBookingHistory = async (
   }
 };
 
-// export const getBookingsForWeek = async (
-//   req: Request,
-//   res: Response
-// ): Promise<void> => {
-//   try {
-//     const { date } = req.params;
-
-//     if (!date || isNaN(Date.parse(date as string))) {
-//       res.status(400).send({ error: "Invalid or missing date parameter" });
-//       return;
-//     }
-
-//     const givenDate = new Date(date);
-//     const startOfTheWeek = startOfWeek(givenDate, { weekStartsOn: 1 }); // Monday
-//     const endOfTheWeek = endOfWeek(givenDate, { weekStartsOn: 1 }); // Sunday
-
-//     const weeklyBookings = await Booking.find({
-//       date: { $gte: startOfTheWeek, $lte: endOfTheWeek },
-//     }).populate("user", "name");
-
-//     const now = new Date();
-//     const pastBookings = weeklyBookings
-//       .filter((booking) => booking.date < now)
-//       .map(formatBookingDates);
-//     const upcomingBookings = weeklyBookings
-//       .filter((booking) => booking.date >= now)
-//       .map(formatBookingDates);
-
-//     res.status(200).send({
-//       startOfTheWeek,
-//       endOfTheWeek,
-//       pastBookings,
-//       upcomingBookings,
-//     });
-//   } catch (error) {
-//     res
-//       .status(500)
-//       .send({ error: "Failed to retrieve bookings", details: error });
-//   }
-// };
-
 export const getBookingsForWeek = async (
   req: Request,
   res: Response
@@ -391,7 +357,10 @@ export const getPastBookings = async (req: AuthRequest, res: Response) => {
   try {
     const now = new Date();
 
+    const userId = req.user!._id;
+
     const pastBookings = await Booking.find({
+      user: userId,
       date: { $lt: now },
     })
       .populate("user", "name")
@@ -411,13 +380,60 @@ export const getUpcomingBookings = async (req: AuthRequest, res: Response) => {
   try {
     const now = new Date();
 
+    const userId = req.user!._id;
+
     const upcomingBookings = await Booking.find({
+      user: userId,
       date: { $gte: now },
     })
-      .populate("user", "name")
+      .populate<{ user: IUser }>("user", "name")
       .sort({ date: 1 });
 
-    const formattedBookings = upcomingBookings.map(formatBookingDates);
+    const formattedBookings: FormattedBooking[] = await Promise.all(
+      upcomingBookings.map(async (booking) => {
+        const bookingStart = new Date(booking.date);
+        const bookingEnd = new Date(
+          bookingStart.getTime() + Number(booking.duration) * 60000
+        );
+
+        const overlappingBookings = await Booking.find({
+          _id: { $ne: booking._id },
+          $or: [
+            { date: { $lt: bookingEnd, $gte: bookingStart } },
+            {
+              $expr: {
+                $and: [
+                  { $lt: ["$date", bookingEnd] },
+                  {
+                    $gte: [
+                      { $add: ["$date", { $multiply: ["$duration", 60000] }] },
+                      bookingStart,
+                    ],
+                  },
+                ],
+              },
+            },
+          ],
+        }).populate<{ user: IUser }>("user", "name");
+
+        const overlappingUsers = overlappingBookings.map((ob) => ({
+          _id: ob.user._id.toString(),
+          name: ob.user.name,
+        }));
+
+        return {
+          _id: booking._id.toString(),
+          date: booking.date.toISOString(),
+          duration: booking.duration,
+          user: {
+            _id: booking.user._id.toString(),
+            name: booking.user.name,
+          },
+          overlappingUsers,
+        };
+      })
+    );
+
     res.status(200).send(formattedBookings);
   } catch (error) {
     res.status(500).send({
@@ -426,187 +442,6 @@ export const getUpcomingBookings = async (req: AuthRequest, res: Response) => {
     });
   }
 };
-
-// export const getBookingsForWeekByTimeslot = async (
-//   req: Request,
-//   res: Response
-// ): Promise<void> => {
-//   try {
-//     const { date, startOfWeek: startOfWeekParam } = req.query;
-
-//     if (!date || isNaN(Date.parse(date as string))) {
-//       res.status(400).send({ error: "Invalid or missing date parameter" });
-//       return;
-//     }
-
-//     const givenDate = new Date(date as string);
-//     const useStartOfWeek = startOfWeekParam === "true";
-
-//     let startDate: Date;
-//     let endDate: Date;
-
-//     if (useStartOfWeek) {
-//       startDate = startOfWeek(givenDate, { weekStartsOn: 1 });
-//       endDate = addDays(startDate, 6);
-//     } else {
-//       startDate = givenDate;
-//       endDate = addDays(startDate, 6);
-//     }
-
-//     const weeklyBookings = await Booking.find({
-//       date: { $gte: startDate, $lte: endDate },
-//     }).populate("user", "name");
-
-//     const timeslotBookingsByDate: {
-//       [date: string]: { [timeslot: string]: number };
-//     } = {};
-
-//     for (let i = 0; i < 7; i++) {
-//       const currentDate = addDays(startDate, i);
-//       const formattedDate = format(currentDate, "yyyy-MM-dd");
-
-//       if (!timeslotBookingsByDate[formattedDate]) {
-//         timeslotBookingsByDate[formattedDate] = {};
-//       }
-
-//       for (let j = 0; j < 48; j++) {
-//         const timeslotStart = addMinutes(currentDate, j * 30);
-//         const timeslotEnd = addMinutes(timeslotStart, 30);
-//         const timeslotKey = format(timeslotStart, "HH:mm");
-
-//         if (!timeslotBookingsByDate[formattedDate][timeslotKey]) {
-//           timeslotBookingsByDate[formattedDate][timeslotKey] = 0;
-//         }
-
-//         const bookingsInTimeslot = weeklyBookings.filter((booking) => {
-//           const bookingStart = new Date(booking.date);
-//           const bookingEnd = new Date(
-//             bookingStart.getTime() + Number(booking.duration) * 60 * 60 * 1000
-//           );
-//           return bookingStart < timeslotEnd && bookingEnd > timeslotStart;
-//         });
-
-//         timeslotBookingsByDate[formattedDate][timeslotKey] +=
-//           bookingsInTimeslot.length;
-//       }
-//     }
-
-//     res.status(200).send(timeslotBookingsByDate);
-//   } catch (error) {
-//     res
-//       .status(500)
-//       .send({ error: "Failed to retrieve bookings", details: error });
-//   }
-// };
-
-// export const getBookingsForWeekByTimeslot = async (
-//   req: AuthRequest,
-//   res: Response
-// ): Promise<void> => {
-//   try {
-//     const {
-//       date,
-//       startOfWeek: startOfWeekParam,
-//       startTime,
-//       endTime,
-//     } = req.query;
-
-//     if (!date || isNaN(Date.parse(date as string))) {
-//       res.status(400).send({ error: "Invalid or missing date parameter" });
-//       return;
-//     }
-
-//     const givenDate = new Date(date as string);
-//     const useStartOfWeek = startOfWeekParam === "true";
-
-//     const startHour = parseInt(startTime as string);
-//     const endHour = parseInt(endTime as string);
-
-//     if (
-//       isNaN(startHour) ||
-//       isNaN(endHour) ||
-//       startHour < 0 ||
-//       startHour > 23 ||
-//       endHour < 0 ||
-//       endHour > 23 ||
-//       startHour > endHour
-//     ) {
-//       res
-//         .status(400)
-//         .send({ error: "Invalid or missing startTime/endTime parameters" });
-//       return;
-//     }
-
-//     let startDate: Date;
-//     let endDate: Date;
-
-//     if (useStartOfWeek) {
-//       startDate = startOfWeek(givenDate, { weekStartsOn: 1 });
-//       endDate = addDays(startDate, 6);
-//     } else {
-//       startDate = givenDate;
-//       endDate = addDays(startDate, 6);
-//     }
-
-//     const weeklyBookings = await Booking.find({
-//       date: { $gte: startDate, $lte: endDate },
-//     }).populate("user", "name");
-
-//     const timeslotBookingsByDate: {
-//       [date: string]: { [timeslot: string]: number };
-//     } = {};
-
-//     for (let i = 0; i < 7; i++) {
-//       const currentDate = addDays(startDate, i);
-//       const formattedDate = format(currentDate, "yyyy-MM-dd");
-
-//       if (!timeslotBookingsByDate[formattedDate]) {
-//         timeslotBookingsByDate[formattedDate] = {};
-//       }
-
-//       for (let hour = startHour; hour < endHour; hour++) {
-//         for (let j = 0; j < 2; j++) {
-//           const timeslotStart = set(currentDate, {
-//             hours: hour,
-//             minutes: j * 30,
-//           });
-//           const timeslotEnd = addMinutes(timeslotStart, 30);
-//           const timeslotKey = format(timeslotStart, "HH:mm");
-
-//           if (!timeslotBookingsByDate[formattedDate][timeslotKey]) {
-//             timeslotBookingsByDate[formattedDate][timeslotKey] = 0;
-//           }
-
-//           const bookingsInTimeslot = weeklyBookings.filter((booking) => {
-//             const bookingStart = new Date(booking.date);
-//             const bookingEnd = new Date(
-//               bookingStart.getTime() + Number(booking.duration) * 60 * 60 * 1000
-//             );
-//             return bookingStart < timeslotEnd && bookingEnd > timeslotStart;
-//           });
-
-//           const userBookingInTimeslot = bookingsInTimeslot.some(
-//             (booking) =>
-//               booking.user._id.toString() === req.user!._id.toString()
-//           );
-
-//           if (userBookingInTimeslot) {
-//             timeslotBookingsByDate[formattedDate][timeslotKey] = 100;
-//           } else {
-//             timeslotBookingsByDate[formattedDate][timeslotKey] +=
-//               bookingsInTimeslot.length;
-//           }
-//         }
-//       }
-//     }
-
-//     res.status(200).send(timeslotBookingsByDate);
-//   } catch (error) {
-//     res
-//       .status(500)
-//       .send({ error: "Failed to retrieve bookings", details: error });
-//   }
-// };
 
 export const getBookingsForWeekByTimeslot = async (
   req: AuthRequest,
