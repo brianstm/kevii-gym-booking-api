@@ -15,16 +15,24 @@ export const checkIn = async (
     const now = new Date();
     const nowOffset = new Date(now.getTime() + 8 * 60 * 60 * 1000);
 
+    // Find bookings within a 20-minute window of the current time
+    const twentyMinutesBefore = new Date(nowOffset.getTime() - 20 * 60 * 1000);
+    const twentyMinutesAfter = new Date(nowOffset.getTime() + 20 * 60 * 1000);
+
     const booking = await Booking.findOne({
       user: req.user!._id,
       date: {
-        $lte: nowOffset,
+        $gte: twentyMinutesBefore,
+        $lte: twentyMinutesAfter,
       },
-    }).sort({ date: -1 });
+    }).sort({ date: 1 }); // Get the nearest booking
+
+    console.log("Current time with offset:", nowOffset);
+    console.log("Booking found:", booking);
 
     if (!booking) {
       res.status(400).send({
-        error: "No recent booking found.",
+        error: "No booking found within 20 minutes of the current time.",
       });
       return;
     }
@@ -67,7 +75,7 @@ export const checkIn = async (
     booking.present = true;
     await booking.save();
 
-    res.status(201).send({ checkIn, booking });
+    res.status(201).send({ checkIn, booking, timeDifference });
   } catch (error) {
     res.status(400).send(error);
   }
