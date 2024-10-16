@@ -135,6 +135,60 @@ export const getBooking = async (
   }
 };
 
+// export const updateBooking = async (
+//   req: AuthRequest,
+//   res: Response
+// ): Promise<void> => {
+//   const updates = Object.keys(req.body) as Array<keyof IBooking>;
+//   const allowedUpdates: Array<keyof IBooking> = ["date", "duration"];
+//   const isValidOperation = updates.every((update) =>
+//     allowedUpdates.includes(update)
+//   );
+
+//   if (!isValidOperation) {
+//     res.status(400).send({ error: "Invalid updates!" });
+//     return;
+//   }
+
+//   try {
+//     const booking = await Booking.findOne({
+//       _id: req.params.id,
+//       user: req.user!._id,
+//     });
+
+//     if (!booking) {
+//       res.status(404).send();
+//       return;
+//     }
+
+//     const now = new Date();
+//     const bookingTime = new Date(booking.date);
+//     const timeDifference = bookingTime.getTime() - now.getTime();
+//     const hoursDifference = timeDifference / (1000 * 60 * 60);
+
+//     if (hoursDifference <= 1) {
+//       res.status(400).send({
+//         error:
+//           "Cannot edit bookings less than 1 hour before the scheduled time.",
+//       });
+//       return;
+//     }
+
+//     updates.forEach((update) => {
+//       if (update === "date") {
+//         booking.date = new Date(req.body.date);
+//       } else if (update === "duration") {
+//         booking.duration = req.body.duration;
+//       }
+//     });
+
+//     await booking.save();
+//     res.send(booking);
+//   } catch (error) {
+//     res.status(400).send(error);
+//   }
+// };
+
 export const updateBooking = async (
   req: AuthRequest,
   res: Response
@@ -170,6 +224,38 @@ export const updateBooking = async (
       res.status(400).send({
         error:
           "Cannot edit bookings less than 1 hour before the scheduled time.",
+      });
+      return;
+    }
+
+    const newDate = new Date(req.body.date);
+    const newDuration = req.body.duration;
+    const newEndTime = new Date(
+      newDate.getTime() + newDuration * 60 * 60 * 1000
+    );
+
+    const overlappingBookings = await Booking.find({
+      user: req.user!._id,
+      _id: { $ne: booking._id },
+      $or: [
+        {
+          date: { $gte: newDate, $lt: newEndTime },
+        },
+        {
+          date: { $lt: newDate },
+          $expr: {
+            $gte: [
+              { $add: ["$date", { $multiply: ["$duration", 60 * 60 * 1000] }] },
+              newDate,
+            ],
+          },
+        },
+      ],
+    });
+
+    if (overlappingBookings.length > 0) {
+      res.status(400).send({
+        error: "Your new booking time overlaps with an existing booking.",
       });
       return;
     }
