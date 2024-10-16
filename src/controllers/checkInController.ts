@@ -153,3 +153,23 @@ export const getAllCheckIns = async (
       .send({ error: "An error occurred while fetching check-ins" });
   }
 };
+
+export const getCurrentGymPopulation = async (
+  req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    const currentlyCheckedIn = await CheckIn.countDocuments({
+      checkOutTime: null,
+    });
+
+    res.status(200).send({
+      population: currentlyCheckedIn,
+      message: `There are currently ${currentlyCheckedIn} people in the gym.`,
+    });
+  } catch (error) {
+    res.status(500).send({
+      error: "An error occurred while fetching the gym population.",
+    });
+  }
+};
