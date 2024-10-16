@@ -13,10 +13,11 @@ export const checkIn = async (
 ): Promise<void> => {
   try {
     const now = new Date();
+
     const utcNow = new Date(now.getTime() + now.getTimezoneOffset() * 60000);
     const tenMinutesLater = new Date(utcNow.getTime() + 10 * 60 * 1000);
 
-    const booking = await Booking.findOne({
+    const booking = await Booking.find({
       user: req.user!._id,
       date: {
         $gte: utcNow,
@@ -35,6 +36,7 @@ export const checkIn = async (
       user: req.user!._id,
       checkOutTime: null,
     });
+
     if (existingCheckIn) {
       res.status(400).send({ error: "You are already checked in" });
       return;

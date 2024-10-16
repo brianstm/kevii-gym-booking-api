@@ -13,7 +13,14 @@ const PORT = process.env.PORT || 8000;
 
 connectDB();
 
-app.use(cors({ origin: "http://localhost:5173" }));
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "https://kevii-gym-booking-app.vercel.app",
+    ],
+  })
+);
 
 app.use(express.json());
 
