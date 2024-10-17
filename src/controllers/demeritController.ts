@@ -14,23 +14,22 @@ export const checkDemerits = async (
   res: Response
 ): Promise<void> => {
   try {
-    // Get all unchecked bookings (regardless of date)
+    const now = new Date();
+
     const bookings = await Booking.find({
       demeritChecked: false,
+      date: { $lt: now },
     }).populate("user");
 
-    // Get all unchecked check-ins
     const checkIns = await CheckIn.find({
       demeritChecked: false,
+      checkInTime: { $lt: now },
     }).populate("user");
 
     const demerits = [];
 
-    // Check bookings for no-shows
     for (const booking of bookings) {
-      // If the booking is marked as not present, it means they didn't check in
       if (!booking.present) {
-        // Add demerit for no-show
         const demerit = new Demerit({
           user: booking.user,
           reason: "No-show for booked session",
@@ -42,15 +41,12 @@ export const checkDemerits = async (
         demerits.push(demerit);
       }
 
-      // Mark booking as checked regardless of whether a demerit was issued
       booking.demeritChecked = true;
       await booking.save();
     }
 
-    // Check check-ins for missing check-outs or long duration
     for (const checkIn of checkIns) {
       if (!checkIn.checkOutTime) {
-        // Add demerit for no check-out
         const demerit = new Demerit({
           user: checkIn.user,
           reason: "No check-out recorded",
@@ -61,14 +57,12 @@ export const checkDemerits = async (
         await demerit.save();
         demerits.push(demerit);
       } else {
-        // Check duration
         const duration = differenceInHours(
           new Date(checkIn.checkOutTime),
           new Date(checkIn.checkInTime)
         );
 
         if (duration > 5) {
-          // Add demerit for exceeding 5 hours
           const demerit = new Demerit({
             user: checkIn.user,
             reason: "Gym session exceeded 5 hours",
@@ -81,7 +75,6 @@ export const checkDemerits = async (
         }
       }
 
-      // Mark check-in as checked
       checkIn.demeritChecked = true;
       await checkIn.save();
     }
@@ -122,7 +115,6 @@ export const getUserDemerits = async (
       0
     );
 
-    // Group demerits by reason
     const demeritsByReason = demerits.reduce((acc: any, demerit) => {
       if (!acc[demerit.reason]) {
         acc[demerit.reason] = 0;
@@ -153,7 +145,6 @@ export const getAllDemerits = async (
       .populate("user", "name email")
       .sort({ checkedAt: -1 });
 
-    // Calculate statistics
     const stats = {
       totalDemerits: demerits.length,
       totalPoints: demerits.reduce((sum, d) => sum + d.points, 0),
