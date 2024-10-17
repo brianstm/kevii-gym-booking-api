@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import User from "../models/User";
+import User, { IUser } from "../models/User";
 import Demerit from "../models/Demerit";
 
 interface SuspensionRequest {
@@ -7,6 +7,10 @@ interface SuspensionRequest {
   days?: number;
   reason?: string;
   autoSuspend?: boolean;
+}
+
+interface AuthRequest extends Request {
+  user?: IUser;
 }
 
 export class SuspensionController {
@@ -178,5 +182,59 @@ export class SuspensionController {
     }
 
     return null;
+  }
+
+  static async getAllUsersWithSuspensionStatus(
+    req: Request,
+    res: Response
+  ): Promise<void> {
+    try {
+      const users = await User.find({});
+
+      const usersWithSuspension = users.map((user) => ({
+        _id: user._id,
+        email: user.email,
+        name: user.name,
+        suspended: user.suspended ? true : false,
+        suspensionDetails: user.suspended || null,
+      }));
+
+      res.status(200).send(usersWithSuspension);
+    } catch (error) {
+      res.status(500).send({ error: "Failed to fetch users", details: error });
+    }
+  }
+
+  static async getUserSuspensionStatus(
+    req: AuthRequest,
+    res: Response
+  ): Promise<void> {
+    try {
+      const userId = req.user!._id;
+      const user = await User.findById(userId);
+
+      if (!user) {
+        res.status(404).send({ error: "User not found" });
+        return;
+      }
+
+      const isSuspended = user.isSuspended();
+
+      if (isSuspended) {
+        res.status(200).send({
+          suspended: true,
+          details: user.suspended,
+          remainingTime: user.suspended?.until
+            ? new Date(user.suspended.until).getTime() - new Date().getTime()
+            : 0,
+        });
+      } else {
+        res.status(200).send({ suspended: false });
+      }
+    } catch (error) {
+      res
+        .status(500)
+        .send({ error: "Failed to get suspension status", details: error });
+    }
   }
 }

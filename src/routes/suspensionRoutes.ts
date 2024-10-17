@@ -12,5 +12,16 @@ router.delete(
   SuspensionController.removeSuspension
 );
 router.get("/suspend/:userId", auth, SuspensionController.getSuspensionStatus);
+router.get(
+  "/users/suspend",
+  auth,
+  isAdmin,
+  SuspensionController.getAllUsersWithSuspensionStatus
+);
+router.get(
+  "/suspend/current",
+  auth,
+  SuspensionController.getUserSuspensionStatus
+);
 
 export default router;
