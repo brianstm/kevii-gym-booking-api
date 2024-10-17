@@ -30,7 +30,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/", bookingRoutes);
 app.use("/api/checkin", checkInRoutes);
 app.use("/api/demerit", demeritRoutes);
-app.use("/api/suspend", suspensionRoutes);
+app.use("/api/", suspensionRoutes);
 
 app.get("/", (req, res) => {
   res.status(200).json({ message: "KEVII GYM BOOKING API", version: "1.0.0" });
