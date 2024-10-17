@@ -1,5 +1,5 @@
 import express from "express";
-import { auth } from "../middleware/auth";
+import { auth, isAdmin } from "../middleware/auth";
 import {
   checkDemerits,
   getUserDemerits,
@@ -8,8 +8,8 @@ import {
 
 const router = express.Router();
 
-router.post("/check", auth, checkDemerits);
+router.post("/check", auth, isAdmin, checkDemerits);
 router.get("/my-demerits", auth, getUserDemerits);
-router.get("/all", auth, getAllDemerits);
+router.get("/all", auth, isAdmin, getAllDemerits);
 
 export default router;

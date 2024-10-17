@@ -35,16 +35,23 @@ export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
+
     if (!user) {
       throw new Error("Invalid login credentials");
     }
+
     const isPasswordMatch = await user.comparePassword(password);
     if (!isPasswordMatch) {
       throw new Error("Invalid login credentials");
     }
-    const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET!);
+
+    const token = jwt.sign(
+      { _id: user._id, admin: user.admin },
+      process.env.JWT_SECRET!
+    );
+
     res.send({ user, token });
   } catch (error) {
-    res.status(400).send(error);
+    res.status(400).send({ error });
   }
 };

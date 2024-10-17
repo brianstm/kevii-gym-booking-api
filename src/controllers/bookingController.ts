@@ -3,6 +3,7 @@ import Booking, { IBooking } from "../models/Booking";
 import User, { IUser } from "../models/User";
 import { startOfWeek, addDays, addMinutes, format, set } from "date-fns";
 import { format as formatWithTimezone, fromZonedTime } from "date-fns-tz";
+import Demerit from "../models/Demerit";
 
 interface AuthRequest extends Request {
   user?: IUser;
@@ -27,6 +28,37 @@ export const createBooking = async (
     const maxUsersPerHour = 5;
     const maxDuration = 3;
     const maxBookingsPerDay = 3;
+    const maxDemeritPoints = 5;
+
+    const user = await User.findById(req.user!._id);
+    if (user?.isSuspended()) {
+      res.status(403).send({
+        error: `You are suspended until ${user.suspended?.until}. Reason: ${user.suspended?.reason}`,
+      });
+      return;
+    }
+
+    const currentDate = new Date();
+    const thirtyDaysAgo = new Date(
+      currentDate.getTime() - 30 * 24 * 60 * 60 * 1000
+    );
+
+    const demerits = await Demerit.find({
+      user: req.user!._id,
+      checkedAt: { $gte: thirtyDaysAgo },
+    });
+
+    const totalDemeritPoints = demerits.reduce(
+      (sum, demerit) => sum + demerit.points,
+      0
+    );
+
+    if (totalDemeritPoints > maxDemeritPoints) {
+      res.status(403).send({
+        error: `You cannot book the gym as you have ${totalDemeritPoints} demerit points. Maximum allowed is ${maxDemeritPoints}.`,
+      });
+      return;
+    }
 
     const { date, duration } = req.body;
 
@@ -668,4 +700,73 @@ const formatBookingDates = (booking: any) => {
       sgt: sgtDate,
     },
   };
+};
+
+export const suspendUser = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { userId, days, reason } = req.body;
+
+    if (!userId || !days || !reason) {
+      res.status(400).send({ error: "Missing required fields" });
+      return;
+    }
+
+    const suspensionEndDate = new Date();
+    suspensionEndDate.setDate(suspensionEndDate.getDate() + days);
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      {
+        suspended: {
+          until: suspensionEndDate,
+          reason: reason,
+        },
+      },
+      { new: true }
+    );
+
+    if (!user) {
+      res.status(404).send({ error: "User not found" });
+      return;
+    }
+
+    res.status(200).send({
+      message: `User suspended until ${suspensionEndDate}`,
+      user,
+    });
+  } catch (error) {
+    res.status(500).send(error);
+  }
+};
+
+export const removeSuspension = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { userId } = req.params;
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      {
+        $unset: { suspended: "" },
+      },
+      { new: true }
+    );
+
+    if (!user) {
+      res.status(404).send({ error: "User not found" });
+      return;
+    }
+
+    res.status(200).send({
+      message: "Suspension removed successfully",
+      user,
+    });
+  } catch (error) {
+    res.status(500).send(error);
+  }
 };

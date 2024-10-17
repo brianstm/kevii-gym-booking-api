@@ -5,6 +5,7 @@ import authRoutes from "./routes/authRoutes";
 import bookingRoutes from "./routes/bookingRoutes";
 import checkInRoutes from "./routes/checkInRoutes";
 import demeritRoutes from "./routes/demeritRoutes";
+import suspensionRoutes from "./routes/suspensionRoutes";
 import cors from "cors";
 
 dotenv.config();
@@ -29,6 +30,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/", bookingRoutes);
 app.use("/api/checkin", checkInRoutes);
 app.use("/api/demerit", demeritRoutes);
+app.use("/api/suspend", suspensionRoutes);
 
 app.get("/", (req, res) => {
   res.status(200).json({ message: "KEVII GYM BOOKING API", version: "1.0.0" });
