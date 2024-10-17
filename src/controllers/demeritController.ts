@@ -27,6 +27,7 @@ export const checkDemerits = async (
     }).populate("user");
 
     const demerits = [];
+    const autoCheckouts = [];
 
     for (const booking of bookings) {
       if (!booking.present) {
@@ -46,17 +47,27 @@ export const checkDemerits = async (
     }
 
     for (const checkIn of checkIns) {
-      if (!checkIn.checkOutTime) {
+      const fiveHoursAgo = new Date(now.getTime() - 5 * 60 * 60 * 1000);
+
+      if (!checkIn.checkOutTime && checkIn.checkInTime < fiveHoursAgo) {
         const demerit = new Demerit({
           user: checkIn.user,
-          reason: "No check-out recorded",
+          reason: "No check-out recorded - Auto checkout applied",
           points: 1,
-          checkedAt: new Date(),
+          checkedAt: now,
           checkInId: checkIn._id,
         });
         await demerit.save();
         demerits.push(demerit);
-      } else {
+
+        checkIn.checkOutTime = now;
+        autoCheckouts.push({
+          userId: checkIn.user._id,
+          checkInId: checkIn._id,
+          originalCheckInTime: checkIn.checkInTime,
+          autoCheckoutTime: now,
+        });
+      } else if (checkIn.checkOutTime) {
         const duration = differenceInHours(
           new Date(checkIn.checkOutTime),
           new Date(checkIn.checkInTime)
@@ -67,7 +78,7 @@ export const checkDemerits = async (
             user: checkIn.user,
             reason: "Gym session exceeded 5 hours",
             points: 1,
-            checkedAt: new Date(),
+            checkedAt: now,
             checkInId: checkIn._id,
           });
           await demerit.save();
@@ -85,6 +96,8 @@ export const checkDemerits = async (
       details: {
         bookingsChecked: bookings.length,
         checkInsChecked: checkIns.length,
+        autoCheckoutsApplied: autoCheckouts.length,
+        autoCheckouts: autoCheckouts,
         demeritsIssued: demerits.map((d) => ({
           user: d.user,
           reason: d.reason,
