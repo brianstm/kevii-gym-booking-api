@@ -5,6 +5,7 @@ export interface IBooking extends Document {
   date: Date;
   duration: Number;
   present: Boolean;
+  demeritChecked: Boolean;
 }
 
 const BookingSchema: Schema = new Schema({
@@ -12,6 +13,7 @@ const BookingSchema: Schema = new Schema({
   date: { type: Date, required: true },
   duration: { type: Number, required: true },
   present: { type: Boolean, default: false },
+  demeritChecked: { type: Boolean, default: false },
 });
 
 export default mongoose.model<IBooking>("Booking", BookingSchema);
