@@ -96,8 +96,9 @@ export const checkOut = async (
     }
 
     const now = new Date();
+    const nowOffset = new Date(now.getTime() + 8 * 60 * 60 * 1000);
 
-    checkIn.checkOutTime = now;
+    checkIn.checkOutTime = nowOffset;
     await checkIn.save();
     res.send(checkIn);
   } catch (error) {
