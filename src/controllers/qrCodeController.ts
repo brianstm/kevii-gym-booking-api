@@ -1,11 +1,21 @@
 import { Request, Response } from "express";
 import QRCode, { IQRCode } from "../models/QRCode";
+import { IUser } from "../models/User";
+
+interface AuthRequest extends Request {
+  user?: IUser;
+}
 
 export const createQRCode = async (
-  req: Request,
+  req: AuthRequest,
   res: Response
 ): Promise<void> => {
   try {
+    if (!req.user?.admin) {
+      res.status(403).send({ error: "Admin privileges required" });
+      return;
+    }
+
     const { code, name } = req.body;
 
     const existingCode = await QRCode.findOne({ code: code.toUpperCase() });
@@ -28,10 +38,15 @@ export const createQRCode = async (
 };
 
 export const deactivateQRCode = async (
-  req: Request,
+  req: AuthRequest,
   res: Response
 ): Promise<void> => {
   try {
+    if (!req.user?.admin) {
+      res.status(403).send({ error: "Admin privileges required" });
+      return;
+    }
+
     const { code } = req.params;
 
     const qrCode = await QRCode.findOne({ code: code.toUpperCase() });
@@ -50,7 +65,7 @@ export const deactivateQRCode = async (
 };
 
 export const getQRCodeDetails = async (
-  req: Request,
+  req: AuthRequest,
   res: Response
 ): Promise<void> => {
   try {
@@ -69,10 +84,15 @@ export const getQRCodeDetails = async (
 };
 
 export const getAllQRCodes = async (
-  req: Request,
+  req: AuthRequest,
   res: Response
 ): Promise<void> => {
   try {
+    if (!req.user?.admin) {
+      res.status(403).send({ error: "Admin privileges required" });
+      return;
+    }
+
     const { active } = req.query;
 
     let query = {};
