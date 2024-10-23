@@ -30,7 +30,6 @@ router.get(
 router.post(
   "/suspend/auto-check",
   auth,
-  isAdmin,
   SuspensionController.checkAndAutoSuspendAllUsers
 );
 
