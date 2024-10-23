@@ -28,7 +28,7 @@ export const createBooking = async (
     const maxUsersPerHour = 5;
     const maxDuration = 3;
     const maxBookingsPerDay = 3;
-    const maxDemeritPoints = 5;
+    const maxDemeritPoints = 20;
 
     const user = await User.findById(req.user!._id);
     if (user?.isSuspended()) {

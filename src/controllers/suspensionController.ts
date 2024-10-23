@@ -164,17 +164,17 @@ export class SuspensionController {
       0
     );
 
-    if (totalPoints > 15) {
+    if (totalPoints >= 15) {
       return {
         until: new Date(new Date().getTime() + 30 * 24 * 60 * 60 * 1000),
         reason: `Automatic suspension due to excessive demerit points (${totalPoints} points)`,
       };
-    } else if (totalPoints > 10) {
+    } else if (totalPoints >= 10) {
       return {
         until: new Date(new Date().getTime() + 14 * 24 * 60 * 60 * 1000),
         reason: `Automatic suspension due to high demerit points (${totalPoints} points)`,
       };
-    } else if (totalPoints > 5) {
+    } else if (totalPoints >= 5) {
       return {
         until: new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000),
         reason: `Automatic suspension due to demerit points (${totalPoints} points)`,
