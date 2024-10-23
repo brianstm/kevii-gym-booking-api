@@ -8,7 +8,7 @@ import {
 
 const router = express.Router();
 
-router.post("/check", auth, isAdmin, checkDemerits);
+router.post("/check", auth, checkDemerits);
 router.get("/my-demerits", auth, getUserDemerits);
 router.get("/all", auth, isAdmin, getAllDemerits);
 
