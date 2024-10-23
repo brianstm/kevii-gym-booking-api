@@ -76,7 +76,7 @@ export const checkDemerits = async (
         if (duration > 5) {
           const demerit = new Demerit({
             user: checkIn.user,
-            reason: "Gym session exceeded 5 hours",
+            reason: "Gym session exceeded 5 hours - Didn't check out",
             points: 1,
             checkedAt: now,
             checkInId: checkIn._id,

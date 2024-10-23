@@ -237,4 +237,59 @@ export class SuspensionController {
         .send({ error: "Failed to get suspension status", details: error });
     }
   }
+
+  static async checkAndAutoSuspendAllUsers(
+    req: Request,
+    res: Response
+  ): Promise<void> {
+    try {
+      const users = await User.find({});
+      const results = {
+        processed: 0,
+        suspended: 0,
+        errors: [] as Array<{ userId: string; error: string }>,
+      };
+
+      for (const user of users) {
+        try {
+          const suspensionData =
+            await SuspensionController.handleAutoSuspension(
+              (user._id as string).toString()
+            );
+
+          if (suspensionData) {
+            await User.findByIdAndUpdate(
+              user._id,
+              {
+                suspended: suspensionData,
+              },
+              { new: true }
+            );
+            results.suspended++;
+          }
+          results.processed++;
+        } catch (error) {
+          results.errors.push({
+            userId: (user._id as string).toString(),
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
+        }
+      }
+
+      res.status(200).send({
+        message: "Auto-suspension check completed",
+        results: {
+          totalUsers: users.length,
+          processedUsers: results.processed,
+          suspendedUsers: results.suspended,
+          errors: results.errors,
+        },
+      });
+    } catch (error) {
+      res.status(500).send({
+        error: "Failed to process auto-suspensions",
+        details: error instanceof Error ? error.message : error,
+      });
+    }
+  }
 }
