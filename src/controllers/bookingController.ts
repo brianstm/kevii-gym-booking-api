@@ -497,7 +497,6 @@ export const getPastBookings = async (req: AuthRequest, res: Response) => {
 export const getUpcomingBookings = async (req: AuthRequest, res: Response) => {
   try {
     const now = new Date();
-
     const userId = req.user!._id;
 
     const upcomingBookings = await Booking.find({
@@ -511,25 +510,53 @@ export const getUpcomingBookings = async (req: AuthRequest, res: Response) => {
       upcomingBookings.map(async (booking) => {
         const bookingStart = new Date(booking.date);
         const bookingEnd = new Date(
-          bookingStart.getTime() + Number(booking.duration) * 60000
+          bookingStart.getTime() + Number(booking.duration) * 60 * 60 * 1000
         );
 
         const overlappingBookings = await Booking.find({
           _id: { $ne: booking._id },
           $or: [
-            { date: { $lt: bookingEnd, $gte: bookingStart } },
+            {
+              date: {
+                $gte: bookingStart,
+                $lt: bookingEnd,
+              },
+            },
             {
               $expr: {
                 $and: [
                   { $lt: ["$date", bookingEnd] },
                   {
-                    $gte: [
-                      { $add: ["$date", { $multiply: ["$duration", 60000] }] },
+                    $gt: [
+                      {
+                        $add: [
+                          "$date",
+                          { $multiply: ["$duration", 60 * 60 * 1000] },
+                        ],
+                      },
                       bookingStart,
                     ],
                   },
                 ],
               },
+            },
+            {
+              $and: [
+                { date: { $lte: bookingStart } },
+                {
+                  $expr: {
+                    $gte: [
+                      {
+                        $add: [
+                          "$date",
+                          { $multiply: ["$duration", 60 * 60 * 1000] },
+                        ],
+                      },
+                      bookingEnd,
+                    ],
+                  },
+                },
+              ],
             },
           ],
         }).populate<{ user: IUser }>("user", "name");
