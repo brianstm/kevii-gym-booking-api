@@ -497,11 +497,13 @@ export const getPastBookings = async (req: AuthRequest, res: Response) => {
 export const getUpcomingBookings = async (req: AuthRequest, res: Response) => {
   try {
     const now = new Date();
+    const nowOffset = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+
     const userId = req.user!._id;
 
     const upcomingBookings = await Booking.find({
       user: userId,
-      date: { $gte: now },
+      date: { $gte: nowOffset },
     })
       .populate<{ user: IUser }>("user", "name")
       .sort({ date: 1 });
